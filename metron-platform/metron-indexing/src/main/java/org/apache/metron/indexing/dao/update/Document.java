@@ -77,7 +77,7 @@ public class Document {
   }
 
   private static Map<String, Object> convertDoc(String document) throws IOException {
-      return JSONUtils.INSTANCE.load(document, JSONUtils.MAP_SUPPLIER);
+    return JSONUtils.INSTANCE.load(document, JSONUtils.MAP_SUPPLIER);
   }
 
   public String getSensorType() {

@@ -93,10 +93,11 @@ public class ElasticsearchWriter implements BulkMessageWriter<JSONObject>, Seria
     // fetch the field name converter for this sensor type
     FieldNameConverter fieldNameConverter = FieldNameConverters.create(sensorType, configurations);
     String indexPostfix = dateFormat.format(new Date());
-    String indexName = ElasticsearchUtils.getIndexName(sensorType, indexPostfix, configurations);
 
     // create a document from each message
     for(BulkMessage<JSONObject> bulkWriterMessage: messages) {
+      String indexName = ElasticsearchUtils.getIndexName(sensorType, indexPostfix, configurations, bulkWriterMessage.getMessage());
+      LOG.warn("Index name {}", indexName);
       MessageIdBasedDocument document = createDocument(bulkWriterMessage, sensorType, fieldNameConverter);
       documentWriter.addDocument(document, indexName);
     }
@@ -189,4 +190,3 @@ public class ElasticsearchWriter implements BulkMessageWriter<JSONObject>, Seria
     this.documentWriter = documentWriter;
   }
 }
-

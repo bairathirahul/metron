@@ -86,7 +86,7 @@ configurations:
       yarn.nodemanager.log-dirs: '{{ nodemanager_log_dirs }}'
       yarn.nodemanager.resource.memory-mb : '{{ nodemanager_mem_mb }}'
   - storm-site:
-      supervisor.slots.ports: "[6700, 6701, 6702, 6703, 6704, 6705]"
+      supervisor.slots.ports: "[6700, 6701, 6702, 6703, 6704, 6705, 6706, 6707, 6708, 6709, 6710]"
       storm.local.dir: '{{ storm_local_dir }}'
       topology.classpath: '{{ topology_classpath }}'
       # Storm expects ambari metrics to be available in 2.6.  We do *not* install ambari metrics in full-dev, so we need to revert to the old consumer

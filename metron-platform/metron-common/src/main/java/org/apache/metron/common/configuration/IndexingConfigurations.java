@@ -30,11 +30,15 @@ import org.apache.metron.common.utils.JSONUtils;
  * Allows for retrieval and update of indexing configurations.
  */
 public class IndexingConfigurations extends Configurations {
+  public static final String WRITER_ELASTICSEARCH = "elasticsearch";
+  public static final String WRITER_HDFS = "hdfs";
+  public static final String WRITER_SOLR = "solr";
   public static final String BATCH_SIZE_CONF = "batchSize";
   public static final String BATCH_TIMEOUT_CONF = "batchTimeout";
   public static final String ENABLED_CONF = "enabled";
   public static final String INDEX_CONF = "index";
   public static final String OUTPUT_PATH_FUNCTION_CONF = "outputPathFunction";
+  public static final String OUTPUT_INDEX_FUNCTION_CONF = "outputIndexFunction";
   public static final String FIELD_NAME_CONVERTER_CONF = "fieldNameConverter";
 
   /**

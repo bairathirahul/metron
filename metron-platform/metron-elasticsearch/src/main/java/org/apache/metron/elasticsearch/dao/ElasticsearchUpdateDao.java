@@ -180,7 +180,7 @@ public class ElasticsearchUpdateDao implements UpdateDao {
 
   protected String getIndexName(Document update, String indexPostFix) throws IOException {
     return findIndexNameByGUID(update.getGuid(), update.getSensorType())
-            .orElse(ElasticsearchUtils.getIndexName(update.getSensorType(), indexPostFix, null));
+            .orElse(ElasticsearchUtils.getIndexName(update.getSensorType(), indexPostFix, null, null));
   }
 
   protected Optional<String> findIndexNameByGUID(String guid, String sensorType) throws IOException {

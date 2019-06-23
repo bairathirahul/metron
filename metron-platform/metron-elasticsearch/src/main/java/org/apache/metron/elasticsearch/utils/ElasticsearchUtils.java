@@ -31,15 +31,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import org.apache.metron.common.configuration.IndexingConfigurations;
 import org.apache.metron.common.configuration.writer.WriterConfiguration;
 import org.apache.metron.indexing.dao.search.SearchResponse;
 import org.apache.metron.indexing.dao.search.SearchResult;
+import org.apache.metron.stellar.common.StellarProcessor;
+import org.apache.metron.stellar.dsl.Context;
+import org.apache.metron.stellar.dsl.MapVariableResolver;
+import org.apache.metron.stellar.dsl.StellarFunctions;
+import org.apache.metron.stellar.dsl.VariableResolver;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.json.simple.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,6 +56,7 @@ public class ElasticsearchUtils {
   private static final Logger LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static ThreadLocal<Map<String, SimpleDateFormat>> DATE_FORMAT_CACHE
           = ThreadLocal.withInitial(() -> new HashMap<>());
+  private static transient StellarProcessor stellarProcessor = new StellarProcessor();
 
   /**
    * A delimiter that is appended to the user-defined index name to separate
@@ -70,10 +79,28 @@ public class ElasticsearchUtils {
    * @param indexPostfix The index postfix; most often a formatted date.
    * @param configurations User-defined configuration for the writers.
    */
-  public static String getIndexName(String sensorType, String indexPostfix, WriterConfiguration configurations) {
+  public static String getIndexName(String sensorType, String indexPostfix, WriterConfiguration configurations, JSONObject message) {
     String indexName = sensorType;
     if (configurations != null) {
-      indexName = configurations.getIndex(sensorType);
+      // Determine index name from configuration
+      String stellarFunction = (String) configurations.getSensorConfig(sensorType)
+              .getOrDefault(IndexingConfigurations.OUTPUT_INDEX_FUNCTION_CONF, "");
+      if(stellarFunction == null || stellarFunction.trim().isEmpty()) {
+        LOG.debug("No Elasticsearch index extension provided using index name");
+      } else {
+        VariableResolver resolver = new MapVariableResolver(message);
+        Object objResult = stellarProcessor.parse(stellarFunction, resolver, StellarFunctions.FUNCTION_RESOLVER(), Context.EMPTY_CONTEXT());
+        if(!(objResult instanceof String)) {
+          String errorMsg = "Stellar Function <" + stellarFunction + "> did not return a String value. Returned: " + objResult;
+          LOG.error(errorMsg);
+          throw new IllegalArgumentException(errorMsg);
+        } else {
+          indexName = (String) objResult;
+        }
+      }
+      if(indexName.trim().isEmpty()) {
+        indexName = configurations.getIndex(sensorType);
+      }
     }
     indexName = indexName + INDEX_NAME_DELIMITER + "_" + indexPostfix;
     return indexName;

@@ -28,16 +28,18 @@ import org.apache.metron.common.configuration.ParserConfigurations;
 import org.apache.metron.common.zookeeper.ConfigurationsCache;
 import org.apache.metron.rest.RestException;
 import org.apache.metron.rest.service.SensorIndexingConfigService;
+import org.apache.metron.rest.user.User;
+import org.apache.metron.stellar.common.StellarProcessor;
+import org.apache.metron.stellar.dsl.Context;
+import org.apache.metron.stellar.dsl.MapVariableResolver;
+import org.apache.metron.stellar.dsl.StellarFunctions;
+import org.apache.metron.stellar.dsl.VariableResolver;
 import org.apache.zookeeper.KeeperException;
+import org.h2.index.Index;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Collections;
-import java.util.Set;
-import java.util.HashSet;
+import java.util.*;
 
 @Service
 public class SensorIndexingConfigServiceImpl implements SensorIndexingConfigService {
@@ -105,11 +107,47 @@ public class SensorIndexingConfigServiceImpl implements SensorIndexingConfigServ
     if(StringUtils.isEmpty(writerName)) {
       return Collections.emptyList();
     }
-    IndexingConfigurations indexingConfigs = cache.get( IndexingConfigurations.class);
-    ParserConfigurations parserConfigs = cache.get( ParserConfigurations.class);
+
+    StellarProcessor stellarProcessor = new StellarProcessor();
+    List<String> tenantIds = null;
+    if(User.isAdmin()) {
+      // Add wildcard tenant for admin
+      tenantIds = Arrays.asList("*");
+    } else {
+      tenantIds = User.getTenantIds();
+    }
+
+    String configName = null;
+    if (writerName.equals(IndexingConfigurations.WRITER_ELASTICSEARCH)) {
+      configName = IndexingConfigurations.OUTPUT_INDEX_FUNCTION_CONF;
+    } else if (writerName.equals(IndexingConfigurations.WRITER_HDFS)) {
+      configName = IndexingConfigurations.OUTPUT_PATH_FUNCTION_CONF;
+    }
+
+    IndexingConfigurations indexingConfigs = cache.get(IndexingConfigurations.class);
+    ParserConfigurations parserConfigs = cache.get(ParserConfigurations.class);
     Set<String> ret = new HashSet<>();
     for(String sensorName : Iterables.concat(parserConfigs.getTypes(), indexingConfigs.getTypes())) {
       if(indexingConfigs.isEnabled(sensorName, writerName)) {
+        // Generate indexNames from the transformation
+        if (configName != null) {
+          String stellarFunction = (String) indexingConfigs.getSensorIndexingConfig(sensorName, writerName)
+                  .getOrDefault(configName, "");
+          if (stellarFunction != null && !stellarFunction.trim().isEmpty()) {
+            tenantIds.forEach(tenantId -> {
+              VariableResolver resolver = new MapVariableResolver(new HashMap<String, String>() {{
+                put("tenantId", tenantId);
+              }});
+              Object indexName = stellarProcessor.parse(stellarFunction, resolver, StellarFunctions.FUNCTION_RESOLVER(), Context.EMPTY_CONTEXT());
+              if (indexName instanceof String && !((String) indexName).trim().isEmpty()) {
+                ret.add((String) indexName);
+              }
+            });
+            continue;
+          }
+        }
+
+        // Do not apply index name transformations if transformation is not defined in the config
         String indexName = indexingConfigs.getIndex(sensorName, writerName);
         ret.add(indexName == null ? sensorName : indexName);
       }
